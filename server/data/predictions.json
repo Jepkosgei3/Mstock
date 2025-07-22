@@ -1,0 +1,10 @@
+{
+  "AAPL": {
+    "sentiment_score": 0.0,
+    "trend_prediction": "SIDEWAYS trend likely \u23f8\ufe0f"
+  },
+  "TSLA": {
+    "sentiment_score": 0.0,
+    "trend_prediction": "SIDEWAYS trend likely \u23f8\ufe0f"
+  }
+}
