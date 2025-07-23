@@ -1,17 +1,17 @@
+# server/routers/movers.py
+
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
-import json
-import os
+from ..db.mongo import get_collection
 
 router = APIRouter()
 
 @router.get("/api/movers")
-def get_market_movers():
-    file_path = "server/data/market_movers.json"
-    if not os.path.exists(file_path):
-        return JSONResponse(content={"error": "Market movers not found"}, status_code=404)
+def get_movers():
+    col = get_collection("market_movers")
+    movers = list(col.find().limit(50))
 
-    with open(file_path, "r") as f:
-        movers = json.load(f)
+    # Convert ObjectId to string
+    for item in movers:
+        item["_id"] = str(item["_id"])
 
     return {"movers": movers}

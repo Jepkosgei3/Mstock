@@ -1,20 +1,23 @@
-// client/src/components/TrendPrediction.jsx
-import React, { useEffect, useState } from 'react';
-import { fetchTrend } from '../api';
+import { useEffect, useState } from "react";
+import API from "../api";
 
-const TrendPrediction = () => {
-  const [trend, setTrend] = useState('');
+export default function TrendPrediction() {
+  const [predictions, setPredictions] = useState([]);
 
   useEffect(() => {
-    fetchTrend().then(res => setTrend(res.data.prediction));
+    API.get("/api/trend")
+      .then((res) => setPredictions(res.data.predictions))
+      .catch((err) => console.error("Error loading predictions:", err));
   }, []);
 
   return (
-    <div className="p-4 shadow-xl bg-white rounded-xl">
-      <h2 className="text-xl font-bold mb-2">Predicted Trend</h2>
-      <p className="text-2xl">{trend || 'Loading...'}</p>
+    <div className="p-4 shadow rounded bg-white">
+      <h2 className="text-lg font-bold mb-2">Trend Predictions</h2>
+      {predictions.map((p, i) => (
+        <div key={i}>
+          <strong>{p.symbol}:</strong> {p.prediction} at {p.timestamp}
+        </div>
+      ))}
     </div>
   );
-};
-
-export default TrendPrediction;
+}

@@ -1,26 +1,23 @@
-// client/src/components/MarketMovers.jsx
-import React, { useEffect, useState } from 'react';
-import { fetchMarketMovers } from '../api';
+import { useEffect, useState } from "react";
+import API from "../api";
 
-const MarketMovers = () => {
+export default function MarketMovers() {
   const [movers, setMovers] = useState([]);
 
   useEffect(() => {
-    fetchMarketMovers().then(res => setMovers(res.data));
+    API.get("/api/movers")
+      .then((res) => setMovers(res.data.movers))
+      .catch((err) => console.error("Error loading movers:", err));
   }, []);
 
   return (
-    <div className="p-4 shadow-xl bg-white rounded-xl">
-      <h2 className="text-xl font-bold mb-2">Top Market Movers</h2>
-      <ul className="list-disc pl-5">
-        {movers.map((mover, i) => (
-          <li key={i}>
-            {mover.name} ({mover.symbol}) — {mover.change}
-          </li>
-        ))}
-      </ul>
+    <div className="p-4 shadow rounded bg-white">
+      <h2 className="text-lg font-bold mb-2">Top Market Movers</h2>
+      {movers.map((m, i) => (
+        <div key={i}>
+          <strong>{m.symbol}:</strong> {m.change} ({m.direction})
+        </div>
+      ))}
     </div>
   );
-};
-
-export default MarketMovers;
+}

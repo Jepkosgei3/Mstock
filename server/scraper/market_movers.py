@@ -1,38 +1,45 @@
-# server/scraper/market_movers.py
-
-import json
 import requests
 from bs4 import BeautifulSoup
-import os
+from server.db.mongo import get_collection
 
-DATA_PATH = os.path.join(os.path.dirname(__file__), '../data/market_movers.json')
+URL = "https://finance.yahoo.com/most-active"
 
 def fetch_top_movers():
-    url = 'https://www.google.com/finance/markets/most-active'
-    headers = {"User-Agent": "Mozilla/5.0"}
+    print("📈 Fetching market movers...")
+    try:
+        response = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
+        response.raise_for_status()
+    except Exception as e:
+        print(f"❌ Failed to fetch market movers: {e}")
+        return
 
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(response.text, "html.parser")
 
+    # Try locating the table again
+    table = soup.find("table")
+    if not table:
+        print("❌ Could not find the market movers table.")
+        return
+
+    rows = table.select("tbody tr")[:10]
     movers = []
 
-    for item in soup.select('div[jsname="vWLAgc"]'):
-        try:
-            symbol = item.select_one('div[role="heading"]').text.strip()
-            name = item.select_one('div[data-name="Company"]').text.strip()
-            price = item.select_one('div[data-name="Last price"]').text.strip()
-            change = item.select_one('div[data-name="Change"]').text.strip()
-
-            movers.append({
-                "symbol": symbol,
-                "name": name,
-                "price": price,
-                "change": change
-            })
-        except AttributeError:
+    for row in rows:
+        cols = row.find_all("td")
+        if len(cols) < 6:
             continue
+        movers.append({
+            "symbol": cols[0].text.strip(),
+            "name": cols[1].text.strip(),
+            "price": cols[2].text.strip(),
+            "change": cols[3].text.strip(),
+            "percent_change": cols[4].text.strip(),
+            "volume": cols[5].text.strip(),
+        })
 
-    with open(DATA_PATH, 'w') as f:
-        json.dump(movers, f, indent=2)
-
-    return movers
+    if movers:
+        collection = get_collection("market_movers")
+        collection.insert_many(movers)
+        print(f"✅ Inserted {len(movers)} market movers")
+    else:
+        print("⚠️ No market movers data found.")

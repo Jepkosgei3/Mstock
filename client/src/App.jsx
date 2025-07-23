@@ -1,22 +1,24 @@
-// client/src/App.jsx
-import React from 'react';
-import PriceChart from './components/PriceChart';
-import SentimentGauge from './components/SentimentGauge';
-import TrendPrediction from './components/TrendPrediction';
-import MarketMovers from './components/MarketMovers';
+import PriceChart from "./components/PriceChart";
+import MarketMovers from "./components/MarketMovers";
+import SentimentGauge from "./components/SentimentGauge";
+import TrendPrediction from "./components/TrendPrediction";
 
-const App = () => {
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+function App() {
+  console.log("🌍 Using backend API:", BASE_URL);
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6 space-y-6">
-      <h1 className="text-3xl font-bold text-center mb-4">📈 Mstock Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+    <div className="min-h-screen bg-gray-100 p-6">
+      <h1 className="text-3xl font-bold mb-6 text-center">📈 Mstock Dashboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <PriceChart />
+        <MarketMovers />
         <SentimentGauge />
         <TrendPrediction />
-        <MarketMovers />
       </div>
     </div>
   );
-};
+}
 
 export default App;

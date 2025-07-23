@@ -1,20 +1,23 @@
-// client/src/components/SentimentGauge.jsx
-import React, { useEffect, useState } from 'react';
-import { fetchSentiment } from '../api';
+import { useEffect, useState } from "react";
+import API from "../api";
 
-const SentimentGauge = () => {
-  const [score, setScore] = useState(null);
+export default function SentimentGauge() {
+  const [sentiments, setSentiments] = useState([]);
 
   useEffect(() => {
-    fetchSentiment().then(res => setScore(res.data.score));
+    API.get("/api/sentiment")
+      .then((res) => setSentiments(res.data.sentiments))
+      .catch((err) => console.error("Error loading sentiment:", err));
   }, []);
 
   return (
-    <div className="p-4 shadow-xl bg-white rounded-xl">
-      <h2 className="text-xl font-bold mb-2">Sentiment Score</h2>
-      <p className="text-3xl font-bold text-green-600">{score !== null ? score : 'Loading...'}</p>
+    <div className="p-4 shadow rounded bg-white">
+      <h2 className="text-lg font-bold mb-2">Market Sentiment</h2>
+      {sentiments.map((s, i) => (
+        <div key={i}>
+          <strong>{s.symbol}:</strong> {s.text} (Score: {s.sentiment})
+        </div>
+      ))}
     </div>
   );
-};
-
-export default SentimentGauge;
+}

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from server.routers import price, sentiment, trend, movers
+from server.routers import prices, sentiment, trend, movers
 
 
 
@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 # Register routers
-app.include_router(price.router)
+app.include_router(prices.router)
 app.include_router(sentiment.router)
 app.include_router(movers.router)
 app.include_router(trend.router)
