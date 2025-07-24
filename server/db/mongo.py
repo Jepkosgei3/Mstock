@@ -1,10 +1,7 @@
 from pymongo import MongoClient
 import os
 
-MONGO_URI = os.getenv(
-    "MONGO_URI",
-    "mongodb+srv://Mstock:MstockAdmin@bug-tracker-cluster.gmszx4m.mongodb.net/mstock?retryWrites=true&w=majority"
-)
+MONGO_URI = (os.getenv("MONGO_URI"))
 DB_NAME = "mstock"
 
 client = MongoClient(MONGO_URI)
