@@ -1,30 +1,49 @@
-# server/scraper/price_scraper.py
-
 import yfinance as yf
+from datetime import datetime, timedelta
 from ..db.mongo import get_collection
+from typing import List
 
-def fetch_and_save_price_data(symbols, days=30):
+def fetch_stock_data(symbol: str, days: int = 90):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    stock = yf.Ticker(symbol)
+    data = stock.history(
+        start=start_date.strftime('%Y-%m-%d'),
+        end=end_date.strftime('%Y-%m-%d'),
+        interval='1d'
+    )
+    return data.reset_index()
+
+def save_price_data(symbol: str, data):
     col = get_collection("price_data")
-    for s in symbols:
-        print(f"📈 Fetching prices for {s}...")
-        df = yf.download(s, period=f"{days}d", interval="1d", auto_adjust=True)
-        if df.empty:
-            print(f"⚠️ No data for {s}")
-            continue
+    records = []
+    for _, row in data.iterrows():
+        record = {
+            'symbol': symbol,
+            'date': row['Date'].to_pydatetime(),
+            'open': float(row['Open']),
+            'high': float(row['High']),
+            'low': float(row['Low']),
+            'close': float(row['Close']),
+            'volume': int(row['Volume']),
+            'timestamp': datetime.now()
+        }
+        records.append(record)
+    
+    if records:
+        col.update_one(
+            {"symbol": symbol},
+            {"$set": {"latest": records[0]}},
+            upsert=True
+        )
+        col.insert_many(records)
 
-        records = []
-        for date, row in df.iterrows():
-            records.append({
-                "symbol": s,
-                "date": date.to_pydatetime(),
-                "open": row["Open"].item(),
-                "high": row["High"].item(),
-                "low": row["Low"].item(),
-                "close": row["Close"].item(),
-                "volume": row["Volume"].item(),
-            })
-
-        if records:
-            col.delete_many({"symbol": s})
-            col.insert_many(records)
-            print(f"✅ Inserted {len(records)} price records for {s}")
+def start_price_pipeline(symbols: List[str], days: int = 90):
+    for symbol in symbols:
+        print(f"📈 Fetching {days} days of data for {symbol}")
+        try:
+            data = fetch_stock_data(symbol, days)
+            save_price_data(symbol, data)
+        except Exception as e:
+            print(f"⚠️ Error fetching {symbol}: {e}")
+    print("✅ Price data updated")

@@ -1,14 +1,23 @@
-import yfinance as yf
+import requests
+from datetime import datetime
+from ..db.mongo import get_collection
+from typing import List, Dict
 
-# server/scraper/sentiment_scraper.py
-
-def fetch_sentiment_text(symbols):
-    result = {}
+def fetch_sentiment_text(symbols: List[str]) -> Dict[str, List[Dict]]:
+    texts = {}
     for symbol in symbols:
-        # Dummy data or your actual scraping logic here
-        result[symbol] = [
-            f"{symbol} stock is rising",
-            f"{symbol} faces market pressure",
+        url = f"https://newsapi.org/v2/everything?q={symbol}&apiKey=YOUR_API_KEY"
+        response = requests.get(url)
+        data = response.json()
+        texts[symbol] = [
+            {
+                'symbol': symbol,
+                'title': article['title'],
+                'content': article['content'],
+                'source': article['source']['name'],
+                'publishedAt': article['publishedAt'],
+                'timestamp': datetime.now()
+            }
+            for article in data.get('articles', [])
         ]
-    return result
-
+    return texts

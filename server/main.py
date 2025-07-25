@@ -1,27 +1,20 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from server.routers import prices, sentiment, trend, movers
+from .routers import prices, sentiment, trend, crypto
 
 
 
 app = FastAPI()
 
-# Allow CORS for frontend on Vite
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Change to frontend domain in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-# Register routers
+
+
+
+# Include all routers
 app.include_router(prices.router)
 app.include_router(sentiment.router)
-app.include_router(movers.router)
 app.include_router(trend.router)
+app.include_router(crypto.router)
 
 @app.get("/")
-def read_root():
-    return {"message": "Mstock API running"}
+async def root():
+    return {"message": "MStock API is running"}

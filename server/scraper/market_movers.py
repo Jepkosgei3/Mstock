@@ -1,45 +1,28 @@
-import requests
-from bs4 import BeautifulSoup
-from server.db.mongo import get_collection
-
-URL = "https://finance.yahoo.com/most-active"
+import yfinance as yf
+from ..db.mongo import get_collection
+from datetime import datetime
 
 def fetch_top_movers():
-    print("📈 Fetching market movers...")
-    try:
-        response = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
-        response.raise_for_status()
-    except Exception as e:
-        print(f"❌ Failed to fetch market movers: {e}")
-        return
-
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    # Try locating the table again
-    table = soup.find("table")
-    if not table:
-        print("❌ Could not find the market movers table.")
-        return
-
-    rows = table.select("tbody tr")[:10]
+    col = get_collection("market_movers")
+    
+    # Example implementation - replace with your actual mover logic
+    gainers = ["AAPL", "MSFT", "TSLA"]
+    losers = ["META", "NFLX", "AMZN"]
+    
     movers = []
-
-    for row in rows:
-        cols = row.find_all("td")
-        if len(cols) < 6:
-            continue
+    for symbol in gainers + losers:
+        stock = yf.Ticker(symbol)
+        info = stock.info
         movers.append({
-            "symbol": cols[0].text.strip(),
-            "name": cols[1].text.strip(),
-            "price": cols[2].text.strip(),
-            "change": cols[3].text.strip(),
-            "percent_change": cols[4].text.strip(),
-            "volume": cols[5].text.strip(),
+            'symbol': symbol,
+            'name': info.get('shortName', ''),
+            'price': info.get('currentPrice', 0),
+            'change': info.get('regularMarketChange', 0),
+            'changePercent': info.get('regularMarketChangePercent', 0),
+            'category': 'gainer' if symbol in gainers else 'loser',
+            'timestamp': datetime.now()
         })
-
-    if movers:
-        collection = get_collection("market_movers")
-        collection.insert_many(movers)
-        print(f"✅ Inserted {len(movers)} market movers")
-    else:
-        print("⚠️ No market movers data found.")
+    
+    col.delete_many({})
+    col.insert_many(movers)
+    print("✅ Market movers updated")

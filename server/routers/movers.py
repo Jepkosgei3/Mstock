@@ -1,17 +1,10 @@
-# server/routers/movers.py
-
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from ..db.mongo import get_collection
 
 router = APIRouter()
 
-@router.get("/api/movers")
-def get_movers():
-    col = get_collection("market_movers")
-    movers = list(col.find().limit(50))
-
-    # Convert ObjectId to string
-    for item in movers:
-        item["_id"] = str(item["_id"])
-
-    return {"movers": movers}
+@router.get("/movers")
+async def get_movers(col = Depends(get_collection("market_movers"))):
+    cursor = col.find().limit(100)
+    data = [doc async for doc in cursor]
+    return {"data": data}

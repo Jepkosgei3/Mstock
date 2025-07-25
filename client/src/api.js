@@ -1,6 +1,8 @@
 import axios from "axios";
 
+// Load base URL from Vite environment variable
 const API = axios.create({
-  baseURL: "https://animated-fishstick-9vgw554g77cpwqw-8000.app.github.dev"});
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+});
 
 export default API;

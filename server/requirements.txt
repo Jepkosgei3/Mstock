@@ -147,3 +147,4 @@ yfinance==0.2.65
 beautifulsoup4
 requests
 pymongo
+qs

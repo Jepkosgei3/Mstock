@@ -1,97 +1,127 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   LineChart,
   Line,
-  CartesianGrid,
   XAxis,
   YAxis,
+  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
+  ReferenceLine
 } from "recharts";
+import { FiRefreshCw } from "react-icons/fi";
 
-const symbols = ["AAPL", "TSLA", "GOOGL"];
+const API_URL = import.meta.env.VITE_API_BASE_URL;
+
+const fetchPriceData = async () => {
+  const symbols = ["AAPL", "TSLA", "GOOGL", "MSFT"];
+  const params = new URLSearchParams();
+  symbols.forEach(sym => params.append("symbols", sym));
+  
+  const res = await fetch(`${API_URL}/api/prices?${params.toString()}`);
+  if (!res.ok) throw new Error("Failed to fetch price data");
+  return res.json();
+};
+
+const formatDate = (dateStr) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric"
+  });
+};
+
+const getColor = (symbol) => {
+  const colors = {
+    AAPL: "#007aff",
+    TSLA: "#ff3b30",
+    GOOGL: "#34c759",
+    MSFT: "#af52de",
+  };
+  return colors[symbol] || "#8884d8";
+};
 
 export default function PriceChart() {
-  const [chartData, setChartData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["priceData"],
+    queryFn: fetchPriceData,
+    refetchInterval: 300000, // 5 minutes
+  });
 
-  const fetchPrices = async () => {
-    try {
-      const url = new URL(`${import.meta.env.VITE_API_BASE_URL}/api/prices`);
-      symbols.forEach((symbol) => url.searchParams.append("symbols", symbol));
+  // Transform data for Recharts
+  const chartData = React.useMemo(() => {
+    if (!data) return [];
+    
+    // Group by date
+    const dateMap = {};
+    data.forEach(item => {
+      const date = new Date(item.date).toISOString().split('T')[0];
+      if (!dateMap[date]) dateMap[date] = { date };
+      dateMap[date][item.symbol] = item.close;
+    });
+    
+    return Object.values(dateMap)
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .map(item => ({
+        ...item,
+        date: formatDate(item.date)
+      }));
+  }, [data]);
 
-      const response = await fetch(url.toString());
-      const result = await response.json();
-
-      // Ensure response is structured like: { AAPL: [...], TSLA: [...], GOOGL: [...] }
-      const priceMap = result || {};
-
-      // Get all unique dates across all stocks
-      const allDatesSet = new Set();
-      symbols.forEach((symbol) => {
-        const entries = priceMap[symbol] || [];
-        entries.forEach((entry) => {
-          const date = new Date(entry.timestamp).toISOString().split("T")[0]; // YYYY-MM-DD
-          allDatesSet.add(date);
-        });
-      });
-
-      const allDates = Array.from(allDatesSet).sort();
-
-      // Build combined data: { date: 'YYYY-MM-DD', AAPL: 120, TSLA: 240, ... }
-      const combinedData = allDates.map((date) => {
-        const dataPoint = { date };
-        symbols.forEach((symbol) => {
-          const match = (priceMap[symbol] || []).find((entry) =>
-            new Date(entry.timestamp).toISOString().startsWith(date)
-          );
-          dataPoint[symbol] = match ? match.price : null;
-        });
-        return dataPoint;
-      });
-
-      setChartData(combinedData);
-      setLoading(false);
-    } catch (error) {
-      console.error("❌ Error fetching prices:", error);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPrices();
-  }, []);
+  if (isLoading) return <div className="p-4 bg-white rounded-lg shadow">Loading price data...</div>;
+  if (error) return <div className="p-4 bg-white rounded-lg shadow text-red-500">Error: {error.message}</div>;
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow-md h-[400px]">
-      <h2 className="text-lg font-semibold mb-2">📈 Stock Price Trends</h2>
-      {loading ? (
-        <p>Loading...</p>
-      ) : chartData.length === 0 ? (
-        <p>No data available.</p>
-      ) : (
-        <ResponsiveContainer width="100%" height="90%">
+    <div className="bg-white p-4 rounded-xl shadow">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold text-gray-800">Stock Price Trends</h2>
+        <button 
+          onClick={() => refetch()}
+          className="p-2 rounded-full hover:bg-gray-100"
+          title="Refresh data"
+        >
+          <FiRefreshCw className="text-blue-500" />
+        </button>
+      </div>
+      
+      <div className="h-80">
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
-            <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            <XAxis 
+              dataKey="date" 
+              tick={{ fontSize: 12 }}
+              tickMargin={10}
+            />
+            <YAxis 
+              domain={['auto', 'auto']}
+              tickFormatter={(value) => `$${value.toFixed(2)}`}
+              tick={{ fontSize: 12 }}
+              tickMargin={10}
+            />
+            <Tooltip 
+              formatter={(value, name) => [`$${value.toFixed(2)}`, name]}
+              labelFormatter={(label) => `Date: ${label}`}
+            />
             <Legend />
-            {symbols.map((symbol, index) => (
+            <ReferenceLine y={0} stroke="#000" strokeOpacity={0.3} />
+            
+            {["AAPL", "TSLA", "GOOGL", "MSFT"].map(symbol => (
               <Line
                 key={symbol}
                 type="monotone"
                 dataKey={symbol}
-                stroke={
-                  ["#8884d8", "#82ca9d", "#ff7300"][index % 3] // rotating color palette
-                }
+                stroke={getColor(symbol)}
+                strokeWidth={2}
                 dot={false}
+                activeDot={{ r: 6 }}
               />
             ))}
           </LineChart>
         </ResponsiveContainer>
-      )}
+      </div>
     </div>
   );
 }
