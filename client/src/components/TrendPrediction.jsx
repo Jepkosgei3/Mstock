@@ -1,148 +1,185 @@
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { 
-  ComposedChart, 
-  Line, 
-  Area, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer 
-} from "recharts";
-import { FiTrendingUp, FiTrendingDown, FiMinus } from "react-icons/fi";
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
+import { FiTrendingUp, FiTrendingDown, FiMinus } from 'react-icons/fi';
+import { format } from 'date-fns';
+import { fetchTrends } from '../services/api';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL;
+const formatTimestamp = (timestamp) => format(new Date(timestamp), 'MMM dd, yyyy h:mm aa');
 
-const fetchPredictions = async () => {
-  const res = await fetch(`${API_URL}/api/trend`);
-  if (!res.ok) throw new Error("Failed to fetch predictions");
-  return res.json();
+const getTrendColor = (prediction) => {
+  if (prediction > 0.3) return '#10b981'; // Bullish
+  if (prediction > 0.1) return '#10b981'; // Mildly Bullish
+  if (prediction < -0.3) return '#ef4444'; // Bearish
+  if (prediction < -0.1) return '#ef4444'; // Mildly Bearish
+  return '#f59e0b'; // Neutral
 };
 
-const getTrendIcon = (trend) => {
-  switch (trend) {
-    case "Up":
-      return <FiTrendingUp className="text-green-500" />;
-    case "Down":
-      return <FiTrendingDown className="text-red-500" />;
-    default:
-      return <FiMinus className="text-yellow-500" />;
-  }
+const getTrendLabel = (prediction) => {
+  if (prediction > 0.3) return 'Bullish';
+  if (prediction > 0.1) return 'Mildly Bullish';
+  if (prediction < -0.3) return 'Bearish';
+  if (prediction < -0.1) return 'Mildly Bearish';
+  return 'Neutral';
 };
 
 export default function TrendPrediction() {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["predictions"],
-    queryFn: fetchPredictions,
-    refetchInterval: 300000, // 5 minutes
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['predictions'],
+    queryFn: fetchTrends,
+    refetchInterval: 300000,
   });
 
-  // Transform data for chart
   const chartData = React.useMemo(() => {
-    if (!data?.predictions) return [];
-    
-    return data.predictions.map(pred => ({
-      symbol: pred.symbol,
-      confidence: Math.abs(pred.average_sentiment) * 100,
-      trend: pred.predicted_trend,
-      score: pred.average_sentiment
+    if (!data || !Array.isArray(data)) return [];
+    return data.map((item) => ({
+      symbol: item.symbol === 'GOOLG' ? 'GOOGL' : item.symbol,
+      confidence: item.confidence * 100,
+      prediction: item.prediction,
+      timestamp: item.timestamp,
+      trend: getTrendLabel(item.prediction)
     }));
   }, [data]);
 
-  if (isLoading) return <div className="p-4 bg-white rounded-lg shadow">Loading predictions...</div>;
-  if (error) return <div className="p-4 bg-white rounded-lg shadow text-red-500">Error: {error.message}</div>;
+  if (isLoading) {
+    return (
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        <div className="flex justify-center items-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="ml-3 text-lg text-gray-600">Loading predictions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        <p className="text-red-500 font-medium">Error: {error.message}</p>
+        <button 
+          onClick={refetch}
+          className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!chartData || !chartData.length) {
+    return (
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        <p className="text-gray-500">No predictions available</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white p-4 rounded-xl shadow">
-      <h2 className="text-xl font-bold text-gray-800 mb-4">Trend Predictions</h2>
-      
-      <div className="h-80 mb-6">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-            <XAxis dataKey="symbol" />
-            <YAxis 
-              yAxisId="left" 
-              orientation="left" 
-              domain={[-100, 100]}
-              tickFormatter={(value) => `${value}%`}
-            />
-            <YAxis 
-              yAxisId="right" 
-              orientation="right" 
-              domain={[0, 100]}
-              tickFormatter={(value) => `${value}%`}
-            />
-            <Tooltip 
-              formatter={(value, name) => {
-                if (name === "Confidence") return [`${value}%`, name];
-                return [value, name];
-              }}
-            />
-            <Legend />
-            <Bar 
-              yAxisId="right"
-              dataKey="confidence"
-              name="Confidence"
-              fill="#8884d8"
-              barSize={30}
-            />
-            <Line 
-              yAxisId="left"
-              type="monotone"
-              dataKey="score"
-              name="Sentiment Score"
-              stroke="#ff7300"
-              strokeWidth={2}
-              dot={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {data?.predictions?.map((pred, index) => (
-          <div key={index} className="border rounded-lg p-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-semibold text-lg">{pred.symbol}</h3>
-              <div className="flex items-center">
-                {getTrendIcon(pred.predicted_trend)}
-                <span className="ml-1 text-sm">
-                  {pred.predicted_trend}
-                </span>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div>
-                <p className="text-sm text-gray-500">Sentiment Score</p>
-                <p className={`font-medium ${
-                  pred.average_sentiment > 0.1 ? 'text-green-500' : 
-                  pred.average_sentiment < -0.1 ? 'text-red-500' : 'text-yellow-500'
-                }`}>
-                  {pred.average_sentiment.toFixed(2)}
-                </p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500">Confidence</p>
-                <p className="font-medium">
-                  {(Math.abs(pred.average_sentiment) * 100).toFixed(1)}%
-                </p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500">Last Updated</p>
-                <p className="text-sm">
-                  {new Date(pred.timestamp).toLocaleTimeString()}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
+    <div className="bg-white shadow-lg rounded-lg p-6">
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Trend Predictions</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="chart-container">
+          <h3 className="text-lg font-semibold mb-2">Prediction Scores</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis 
+                dataKey="symbol" 
+                tick={{ fontSize: 12 }} 
+                angle={-45}
+                textAnchor="end"
+                height={100}
+              />
+              <YAxis
+                tickFormatter={(value) => value.toFixed(2)}
+                tick={{ fontSize: 12 }}
+                domain={[-1, 1]}
+              />
+              <Tooltip
+                formatter={(value, name) => {
+                  if (name === 'prediction') return [value.toFixed(2), name];
+                  return [value, name];
+                }}
+                contentStyle={{
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '12px'
+                }}
+              />
+              <Legend 
+                layout="vertical"
+                align="right"
+                verticalAlign="middle"
+                wrapperStyle={{ right: 0 }}
+              />
+              <Bar 
+                dataKey="prediction" 
+                radius={[4, 4, 0, 0]}
+                barSize={20}
+                name="Prediction Score"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell 
+                    key={`bar-${index}`} 
+                    fill={getTrendColor(entry.prediction)}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="chart-container">
+          <h3 className="text-lg font-semibold mb-2">Confidence Levels</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <XAxis 
+                dataKey="symbol" 
+                tick={{ fontSize: 12 }} 
+                angle={-45}
+                textAnchor="end"
+                height={100}
+              />
+              <YAxis
+                tickFormatter={(value) => `${value}%`}
+                tick={{ fontSize: 12 }}
+                domain={[0, 100]}
+              />
+              <Tooltip
+                formatter={(value, name) => {
+                  if (name === 'confidence') return [`${value.toFixed(1)}%`, name];
+                  return [value, name];
+                }}
+                contentStyle={{
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '12px'
+                }}
+              />
+              <Legend 
+                layout="vertical"
+                align="right"
+                verticalAlign="middle"
+                wrapperStyle={{ right: 0 }}
+              />
+              <Bar 
+                dataKey="confidence" 
+                radius={[4, 4, 0, 0]}
+                barSize={20}
+                name="Confidence Level"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell 
+                    key={`bar-${index}`} 
+                    fill="#3b82f6"
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
